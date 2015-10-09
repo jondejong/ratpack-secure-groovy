@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
  * Created by jondejong on 10/6/15.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-class CreateCommand {
+class LoginCommand {
     String username
     String password
 
