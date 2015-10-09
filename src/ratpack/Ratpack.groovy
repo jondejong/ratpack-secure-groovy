@@ -1,76 +1,94 @@
-import com.jondejong.api.command.LoginCommand
-import com.jondeong.security.User
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.jondejong.demo.api.command.LoginCommand
+import com.jondejong.demo.datastore.MongoConfig
+import com.jondejong.demo.datastore.MongoConnection
+import com.jondejong.demo.handlers.ErrorHandler
+import com.jondejong.demo.jackson.ObjectIdObjectMapper
+import com.jondejong.demo.user.User
+import com.jondejong.demo.user.UserModule
+import com.jondejong.demo.user.UserService
+import ratpack.config.ConfigData
+import ratpack.error.ServerErrorHandler
+import ratpack.exec.Blocking
 
-import java.security.MessageDigest
 
 import static ratpack.groovy.Groovy.ratpack
 import static ratpack.jackson.Jackson.json
 
-def sha256Hash(text) {
-    MessageDigest.getInstance("SHA-256")
-            .digest(text.getBytes("UTF-8")).encodeBase64().toString()
-}
-
-def generatePassword(user, password) {
-    sha256Hash("${user.salt}${password}")
-}
-
 ratpack {
 
-    def userStore = [:]
-    def keyMap = [:]
-
     bindings {
+        ConfigData configData = ConfigData.of { c ->
+            c.props("$serverConfig.baseDir.file/application.properties")
+            c.env()
+            c.sysProps()
+        }
+
+        bindInstance(ServerErrorHandler, new ErrorHandler())
+
+        bindInstance(MongoConfig, configData.get("/mongo", MongoConfig))
+        bind(MongoConnection)
+
+        module UserModule
+        add(ObjectMapper.class, new ObjectIdObjectMapper())
     }
 
     handlers {
+        all {
+            response.headers.add 'Access-Control-Allow-Origin', '*'
+            response.headers.add 'Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE'
+            response.headers.add 'Access-Control-Allow-Headers', 'Content-Type,X-Requested-With'
+            next()
+        }
 
-        post('create') {
+        post('create') { UserService userService ->
             parse(User).then { user ->
-                user.key = UUID.randomUUID()
-                userStore[user.email] = user
-                user.salt = UUID.randomUUID().toString()
-
-                user.password = generatePassword(user, user.password)
-
-                render json([message: 'User created'])
+                Blocking.get {
+                    userService.createNewUser(user)
+                }.then {
+                    render json(message: 'user created')
+                }
             }
         }
 
-        post('login') {
+        post('login') { UserService userService ->
             parse(LoginCommand).then { command ->
-                User user = userStore[command.username]
-                if (user.password == generatePassword(user, command.password)) {
-                    def key = UUID.randomUUID().toString()
-                    keyMap[key] = user
+                User user
+                def key
+                Blocking.get {
+                    user = userService.getUserByEmail(command.username)
+
+                    if(!user) {
+                        throw new IllegalAccessException()
+                    }
+
+                    if (user?.password == userService.generatePassword(user, command.password)) {
+                        key = userService.createToken(user)
+                    } else {
+                        throw new IllegalAccessException()
+                    }
+                }.then {
                     render json([auth: key])
-                } else {
-                    clientError(401)
                 }
             }
 
         }
 
         prefix('api') {
-            all {
-                def token = request.headers.get('X-Auth-Token')
-                def user = keyMap[token]
-
-                if(!user) {
-                    clientError(401)
-                } else {
+            def user
+            all {UserService userService ->
+                def tokenString = request.headers.get('X-Auth-Token')
+                Blocking.get {
+                    user = userService.getUserByToken(tokenString)
+                }.then {
                     next()
                 }
             }
-            get('users') {
-                def users = userStore.values()
+            get('users') {UserService userService ->
+                def users = userService.list()
                 render json(users)
             }
         }
-        get {
-            render json([message: 'Hit /create to create a new user'])
-        }
 
-        files { dir "public" }
     }
 }
