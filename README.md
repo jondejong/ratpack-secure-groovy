@@ -48,13 +48,13 @@ That is your new token. In your next request set a header with the name "X-Auth-
 
 You should see a response similar to:
 
-[
-  {
-    "id": "56182d6277c864e068c0d4f1",
-    "firstName": "Jon",
-    "lastName": "DeJong",
-    "email": "email@provider.com",
-    "password": "VUvwJV/c+GV4a7ssGASvcUeD4OvyAUuNJKyXVp1W+MM=",
-    "salt": "1fea0666-10b5-4294-af10-44549b5269d8"
-  }
-]
+    [
+      {
+          "id": "56182d6277c864e068c0d4f1",
+          "firstName": "Jon",
+          "lastName": "DeJong",
+          "email": "email@provider.com",
+          "password": "VUvwJV/c+GV4a7ssGASvcUeD4OvyAUuNJKyXVp1W+MM=",
+          "salt": "1fea0666-10b5-4294-af10-44549b5269d8"
+      }
+    ]
