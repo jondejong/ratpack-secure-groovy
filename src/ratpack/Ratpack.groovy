@@ -65,14 +65,15 @@ ratpack {
                             Pair.of(user, command.password)
                         }
                 }.map { pair ->
-                    userService.generatePassword(pair.left, pair.right)
+                    Pair.of(pair.left, userService.generatePassword(pair.left, pair.right))
                 }.route(
-                    { key -> !key },
-                    { key ->
+                    { pair -> pair.left.password != pair.right },
+                    { pair ->
                         response.status(401)
                         render 'No bueno'
                     }
-                ).map { key -> json([auth: key]) }
+                ).map { pair -> pair.right }
+                .map { key -> json([auth: key]) }
                 .then(context.&render)
         }
 
