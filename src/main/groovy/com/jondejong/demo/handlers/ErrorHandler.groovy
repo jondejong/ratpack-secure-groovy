@@ -11,7 +11,7 @@ class ErrorHandler implements ServerErrorHandler {
     @Override
     void error(Context context, Throwable throwable) {
         log.error('error processing request', throwable)
-        def message = 'some thing bad happened'
+        def message = 'something bad happened'
         switch (throwable.class) {
             case IllegalAccessException:
                 context.response.status(HttpResponseStatus.UNAUTHORIZED.code())
