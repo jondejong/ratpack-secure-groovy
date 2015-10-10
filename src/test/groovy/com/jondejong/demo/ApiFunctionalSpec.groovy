@@ -98,7 +98,22 @@ class ApiFunctionalSpec extends Specification {
     }
 
     def "Can login as user"() {
-        given:
+        when:
+        requestSpec {
+            it.body {
+                it.type('application/json')
+                    .text '{"username": "pizza@party.edu", "password":"notaburger"}'
+            }
+        }
+
+        and:
+        post('login')
+
+        then:
+        response.statusCode == 401
+        response.body.text == 'No bueno'
+
+        when:
         remote.exec {
             get(UserService).createNewUser(new User(
                     firstName: 'Pizza',
@@ -108,19 +123,28 @@ class ApiFunctionalSpec extends Specification {
         }
 
         and:
-        requestSpec {
-            it.body {
-                it.type('application/json')
-                .text '{"username": "pizza@party.edu", "password":"notaburger"}'
-            }
-        }
-
-        when:
         post('login')
 
         then:
         response.statusCode == 200
         new JsonSlurper().parseText(response.body.text).auth
+
+        when:
+        resetRequest()
+        requestSpec {
+            it.body {
+                it.type('application/json')
+                        .text '{"username": "pizza@party.edu", "password":"wrongpassword"}'
+            }
+        }
+
+        and:
+        post('login')
+
+        then:
+        response.statusCode == 401
+        response.body.text == 'No bueno password'
+
     }
 
     def "Can't access the API without valid X-Auth-Token"() {

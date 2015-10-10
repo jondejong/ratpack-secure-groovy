@@ -55,15 +55,12 @@ class UserService {
     Promise<User> getUserByToken(tokenString) {
         Blocking.get {
             tokenRepository.find(tokenString)
+        }.onNull {
+            throw new IllegalAccessException()
         }.map { token ->
-            if (!token) {
-                throw new IllegalAccessException()
-            }
-            def user = userRepository.getUser(token.userKey)
-            if (!user) {
-                throw new IllegalAccessException()
-            }
-            user
+            userRepository.getUser(token.userKey)
+        }.onNull {
+            throw new IllegalAccessException()
         }
     }
 
@@ -73,7 +70,7 @@ class UserService {
 
     protected sha256Hash(text) {
         MessageDigest.getInstance("SHA-256")
-                .digest(text.getBytes("UTF-8")).encodeBase64().toString()
+            .digest(text.getBytes("UTF-8")).encodeBase64().toString()
     }
 
 

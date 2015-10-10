@@ -54,23 +54,18 @@ ratpack {
                 .flatMap { command ->
                     userService
                         .getUserByEmail(command.username)
-                        .route(
-                            { user -> !user },
-                            { user ->
-                                response.status(401)
-                                render 'No bueno'
-                            }
-                        )
-                        .map { user ->
-                            Pair.of(user, command.password)
+                        .onNull {
+                            response.status(401)
+                            render 'No bueno'
                         }
+                        .map { user -> Pair.of(user, command.password) }
                 }.map { pair ->
                     Pair.of(pair.left, userService.generatePassword(pair.left, pair.right))
                 }.route(
                     { pair -> pair.left.password != pair.right },
                     { pair ->
                         response.status(401)
-                        render 'No bueno'
+                        render 'No bueno password'
                     }
                 ).map { pair -> pair.right }
                 .map { key -> json([auth: key]) }
@@ -90,11 +85,10 @@ ratpack {
 
                 userService
                     .getUserByToken(tokenString)
-                    .route({ user -> !user }, {
+                    .onNull {
                         response.status(401)
                         render 'Nein'
-                    })
-                    .operation()
+                    }.operation()
                     .then(context.&next)
             }
 
