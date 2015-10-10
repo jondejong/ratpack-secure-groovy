@@ -37,7 +37,7 @@ ratpack {
         all {
             response.headers.add 'Access-Control-Allow-Origin', '*'
             response.headers.add 'Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE'
-            response.headers.add 'Access-Control-Allow-Headers', 'Content-Type,X-Requested-With'
+            response.headers.add 'Access-Control-Allow-Headers', 'X-Auth-Token, Content-Type,X-Requested-With'
             next()
         }
 
