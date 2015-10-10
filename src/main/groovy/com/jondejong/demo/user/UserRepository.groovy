@@ -17,12 +17,7 @@ class UserRepository {
     }
 
     def getUsers() {
-        def users = []
-        def results = database.user.find().asList()
-        results.each {user->
-            users << documentToUser(user)
-        }
-        users
+        database.user.find().collect(this.&documentToUser)
     }
 
     def getUser(id) {

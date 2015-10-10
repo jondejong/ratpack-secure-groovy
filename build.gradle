@@ -1,17 +1,9 @@
-buildscript {
-  repositories {
-    jcenter()
-  }
-  dependencies {
-    classpath "io.ratpack:ratpack-gradle:1.0.0"
-    classpath "com.github.jengelman.gradle.plugins:shadow:1.2.2"
-  }
+plugins {
+  id 'io.ratpack.ratpack-groovy' version '1.0.0'
+  id 'com.github.johnrengelman.shadow' version '1.2.2'
+  id 'idea'
+  id 'eclipse'
 }
-
-apply plugin: "io.ratpack.ratpack-groovy"
-apply plugin: "com.github.johnrengelman.shadow"
-apply plugin: "idea"
-apply plugin: "eclipse"
 
 repositories {
   jcenter()
@@ -24,4 +16,14 @@ dependencies {
   compile 'com.gmongo:gmongo:1.2'
 
   testCompile "org.spockframework:spock-core:1.0-groovy-2.4"
+  testCompile "de.flapdoodle.embed:de.flapdoodle.embed.mongo:1.50.0"
+  testCompile ratpack.dependency("remote-test")
+}
+
+idea {
+  project {
+    jdkName '1.8'
+    languageLevel '1.8'
+    vcs = 'Git'
+  }
 }
