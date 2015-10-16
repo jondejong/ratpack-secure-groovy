@@ -22,6 +22,6 @@ class TokenRepository  implements Service  {
     }
 
     def find(id) {
-        database.token.findOne([_id: new ObjectId(id)])
+        ObjectId.isValid(id) ? database.token.findOne([_id: new ObjectId(id)]) : null
     }
 }

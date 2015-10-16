@@ -9,8 +9,7 @@ import com.jondejong.demo.user.UserModule
 import com.jondejong.demo.user.UserService
 import ratpack.config.ConfigData
 import ratpack.error.ServerErrorHandler
-import ratpack.exec.Blocking
-
+import ratpack.func.Pair
 
 import static ratpack.groovy.Groovy.ratpack
 import static ratpack.jackson.Jackson.json
@@ -27,10 +26,10 @@ ratpack {
         bindInstance(ServerErrorHandler, new ErrorHandler())
 
         bindInstance(MongoConfig, configData.get("/mongo", MongoConfig))
-        bind(MongoConnection)
+        bind MongoConnection
 
         module UserModule
-        add(ObjectMapper.class, new ObjectIdObjectMapper())
+        add(ObjectMapper, new ObjectIdObjectMapper())
     }
 
     handlers {
@@ -42,51 +41,62 @@ ratpack {
         }
 
         post('create') { UserService userService ->
-            parse(User).then { user ->
-                Blocking.get {
-                    userService.createNewUser(user)
-                }.then {
-                    render json(message: 'user created')
+            parse(User)
+                .flatMap { user ->
+                    userService.createNewUser(user).promise()
                 }
-            }
+                .map { json([message: 'user created']) }
+                .then(context.&render)
         }
 
         post('login') { UserService userService ->
-            parse(LoginCommand).then { command ->
-                User user
-                def key
-                Blocking.get {
-                    user = userService.getUserByEmail(command.username)
-
-                    if(!user) {
-                        throw new IllegalAccessException()
+            parse(LoginCommand)
+                .flatMap { command ->
+                    userService
+                        .getUserByEmail(command.username)
+                        .onNull {
+                            response.status(401)
+                            render 'No bueno'
+                        }
+                        .map { user -> Pair.of(user, command.password) }
+                }.map { pair ->
+                    Pair.of(pair.left, userService.generatePassword(pair.left, pair.right))
+                }.route(
+                    { pair -> pair.left.password != pair.right },
+                    { pair ->
+                        response.status(401)
+                        render 'No bueno password'
                     }
-
-                    if (user?.password == userService.generatePassword(user, command.password)) {
-                        key = userService.createToken(user)
-                    } else {
-                        throw new IllegalAccessException()
-                    }
-                }.then {
-                    render json([auth: key])
-                }
-            }
-
+                ).map { pair -> pair.right }
+                .map { key -> json([auth: key]) }
+                .then(context.&render)
         }
 
         prefix('api') {
-            def user
-            all {UserService userService ->
-                def tokenString = request.headers.get('X-Auth-Token')
-                Blocking.get {
-                    user = userService.getUserByToken(tokenString)
-                }.then {
-                    next()
+            when ({ !request.headers.get('X-Auth-Token') }, {
+                all {
+                    response.status(401)
+                    render 'Nein'
                 }
+            })
+
+            all { UserService userService ->
+                def tokenString = request.headers.get('X-Auth-Token')
+
+                userService
+                    .getUserByToken(tokenString)
+                    .onNull {
+                        response.status(401)
+                        render 'Nein'
+                    }.operation()
+                    .then(context.&next)
             }
-            get('users') {UserService userService ->
-                def users = userService.list()
-                render json(users)
+
+            get('users') { UserService userService ->
+                userService
+                    .list()
+                    .map { users -> json(users) }
+                    .then(context.&render)
             }
         }
 

@@ -1,5 +1,9 @@
 package com.jondejong.demo.user
 
+import ratpack.exec.Blocking
+import ratpack.exec.Operation
+import ratpack.exec.Promise
+
 import javax.inject.Inject
 import java.security.MessageDigest
 
@@ -14,39 +18,50 @@ class UserService {
         this.tokenRepository = tokenRepository
     }
 
-    def list() {
-        userRepository.getUsers()
+    Promise<List<User>> list() {
+        Blocking.get {
+            userRepository.users
+        }
     }
 
-    def createNewUser(User user) {
+    Operation createNewUser(User user) {
         user.salt = UUID.randomUUID().toString()
         user.password = generatePassword(user, user.password)
-        userRepository.saveUser(user)
+        Blocking.op {
+            userRepository.saveUser(user)
+        }
     }
 
-    def getUser(id) {
-        userRepository.getUser(id)
+    Promise<User> getUser(id) {
+        Blocking.get {
+            userRepository.getUser(id)
+        }
     }
 
-    def getUserByEmail(email) {
-        userRepository.getUserByEmail(email)
+    Promise<User> getUserByEmail(email) {
+        Blocking.get {
+            userRepository.getUserByEmail(email)
+        }
     }
 
-    def createToken(User user) {
-        def token = tokenRepository.saveToken(user.id)
-        token._id
+    Promise createToken(User user) {
+        Blocking.get {
+            tokenRepository.saveToken(user.id)
+        }.map { token ->
+            token._id
+        }
     }
 
-    def getUserByToken(tokenString) {
-        def token = tokenRepository.find(tokenString)
-        if (!token) {
+    Promise<User> getUserByToken(tokenString) {
+        Blocking.get {
+            tokenRepository.find(tokenString)
+        }.onNull {
+            throw new IllegalAccessException()
+        }.map { token ->
+            userRepository.getUser(token.userKey)
+        }.onNull {
             throw new IllegalAccessException()
         }
-        User user = userRepository.getUser(token.userKey)
-        if (!user) {
-            throw new IllegalAccessException()
-        }
-        user
     }
 
     def generatePassword(user, password) {
@@ -55,7 +70,7 @@ class UserService {
 
     protected sha256Hash(text) {
         MessageDigest.getInstance("SHA-256")
-                .digest(text.getBytes("UTF-8")).encodeBase64().toString()
+            .digest(text.getBytes("UTF-8")).encodeBase64().toString()
     }
 
 
